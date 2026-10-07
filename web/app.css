@@ -1,0 +1,38 @@
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,'PingFang SC','Microsoft YaHei',sans-serif;background:#f5f3ee;color:#222}
+header{background:#1f3a5f;color:#fff;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+header a{color:#cfe0f5}
+.who{font-size:13px}
+.who select{margin-left:6px}
+.viewlink{margin-left:16px}
+nav#tabs{background:#2e4f7a;padding:0 12px;display:flex;flex-wrap:wrap}
+nav#tabs button{background:none;border:0;color:#dce8f5;padding:11px 14px;cursor:pointer;font-size:14px;border-bottom:3px solid transparent}
+nav#tabs button.active{background:#f5f3ee;color:#1f3a5f;border-bottom-color:#c0392b;font-weight:600}
+main{max-width:1080px;margin:18px auto;padding:0 16px}
+.card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:12px 14px;margin:10px 0}
+.card h3{margin:.2em 0 .4em}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+label{font-size:12px;color:#555;display:block;margin:4px 0 2px}
+input,select,textarea{width:100%;padding:6px 8px;border:1px solid #bbb;border-radius:5px;font:inherit}
+textarea{min-height:52px}
+button.act{background:#1f3a5f;color:#fff;border:0;border-radius:5px;padding:7px 12px;cursor:pointer;margin:4px 4px 4px 0}
+button.act.danger{background:#b94a4a}
+button.act.ok{background:#3a7d44}
+button.act.warn{background:#b8860b}
+.badge{display:inline-block;font-size:11px;padding:1px 8px;border-radius:10px;color:#fff;margin-left:4px}
+.b-exact{background:#3a7d44}.b-approx{background:#b8860b}.b-range{background:#8a5a00}.b-unknown{background:#8a3b3b}
+.status{font-size:11px;padding:1px 7px;border-radius:4px;border:1px solid #999;margin-left:4px}
+.s-approved{background:#e4f3e6}.s-draft{background:#eee}.s-submitted{background:#fff3cd}.s-rejected{background:#f0e0f0}.s-retracted{background:#f6e0e0}
+.s-open{background:#fff3cd}.s-done{background:#e4f3e6}.s-building{background:#dfe9f5}.s-failed{background:#f6e0e0}.s-current{background:#e4f3e6}.s-superseded{background:#eee}
+.meta{color:#666;font-size:12px;margin:3px 0}
+.tombstone{background:#f6e0e0;border-left:4px solid #b94a4a;padding:6px 10px;margin:4px 0;border-radius:0 4px 4px 0}
+.muted{color:#888}
+.tc-missing{color:#b8860b;font-style:italic}
+#toast{position:fixed;right:16px;bottom:16px;background:#222;color:#fff;padding:10px 14px;border-radius:6px;opacity:0;transition:.25s;max-width:340px}
+#toast.show{opacity:.95}
+#toast.err{background:#8a2a2a}
+details{margin:6px 0}summary{cursor:pointer;font-weight:600}
+.sep{border-top:2px dashed #1f3a5f;margin:14px 0;padding-top:8px}
+.evi-support{color:#3a7d44}.evi-against{color:#b94a4a}
+table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid #ddd;padding:4px 6px;text-align:left}

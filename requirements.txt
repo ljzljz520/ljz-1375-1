@@ -1,0 +1,2 @@
+# 本项目仅依赖 Python 3.11 标准库（http.server / sqlite3 / zlib），
+# 前端为原生 HTML/CSS/JS，无需 npm 安装，可完全离线运行与构建。
