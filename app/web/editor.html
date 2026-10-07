@@ -1,0 +1,218 @@
+<!doctype html><html lang=zh><meta charset=utf-8>
+<title>渔港记忆展厅 · 编辑台</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#f5f1e8}
+header{background:#243447;color:#fff;padding:8px 16px;display:flex;gap:12px;align-items:center}
+nav button{background:#3a4d63;color:#fff;border:0;padding:8px 12px;margin:2px;cursor:pointer}
+nav button.on{background:#c08a3e}
+main{padding:16px;max-width:1100px}
+section{background:#fff;padding:14px;border-radius:6px;margin-bottom:14px}
+input,textarea,select{padding:4px;margin:2px;border:1px solid #bbb;border-radius:3px}
+table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:4px 6px;font-size:13px;text-align:left}
+.badge{font-size:11px;padding:1px 5px;border-radius:8px;border:1px solid #888}
+.b-approved,.b-granted{background:#dff5e3;border-color:#3a3}.b-draft,.b-pending{background:#fff4d0;border-color:#c93}
+.b-withdrawn,.b-revoked,.b-rejected{background:#fde0e0;border-color:#c33}.b-in_review{background:#e0ecfd}
+.weak{color:#a33;font-size:12px}.muted{color:#777;font-size:12px}
+button.act{padding:4px 10px;cursor:pointer}
+pre{background:#f0eee6;padding:8px;max-height:260px;overflow:auto;font-size:12px}
+</style>
+<header>
+ <b>渔港记忆展厅</b>
+ <label>当前编辑：<select id=user></select></label>
+ <button class=act onclick="loadAll()">刷新</button>
+ <a href="/pub/" target=_blank style="color:#ffd">查看公开版 ↗</a>
+ <span id=curver class=muted style="color:#cfe"></span>
+</header>
+<nav id=tabs></nav><main id=view></main>
+<script>
+let S=null, UID=1;
+const api=async (p,o={})=>{o.headers={'Content-Type':'application/json','X-User-Id':UID};o.body=JSON.stringify(o.body||{});
+ const r=await fetch(p,{method:o.method||'POST',headers:o.headers,body:o.method==='GET'?undefined:o.body});
+ const j=await r.json(); if(j.error) throw new Error(j.error); return j.result??j;};
+const e=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const badge=v=>`<span class="badge b-${v}">${v}</span>`;
+const TABS=['ships','identity','jargons','places','photos','interviews','statements','publish'];
+let tab='ships';
+
+async function loadAll(){
+ S=await api('/api/state',{method:'GET'});
+ if(!localStorage.uid) localStorage.uid=1; UID=+localStorage.uid;
+ document.getElementById('user').innerHTML=S.users.map(u=>
+  `<option value=${u.id} ${u.id===UID?'selected':''}>${u.username}（${u.role}）</option>`).join('');
+ document.getElementById('curver').textContent='当前公开版本：v'+(S.current_pub??'未发布');
+ render();
+}
+document.getElementById('user').onchange=ev=>{UID=+ev.target.value;localStorage.uid=UID;};
+document.getElementById('tabs').innerHTML=TABS.map(t=>
+ `<button data-t=${t}>${({ships:'船只',identity:'身份候选',jargons:'行话',places:'地点',photos:'照片',interviews:'口述',statements:'史料陈述',publish:'发布/撤稿'})[t]}</button>`).join('');
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;render();});
+
+function tpText(tp){if(!tp)return '年代未定';
+ if(tp.kind==='exact')return tp.start;if(tp.kind==='range')return tp.start+'..'+tp.end;return '未定'+(tp.label?`（${tp.label}）`:'');}
+function head(){document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));}
+
+function renderShip(s){return `<tr><td>${s.id}${s.superseded?' <span class=weak>已并入#'+s.merged_into+'</span>':''}</td>
+ <td><b>${e(s.current_name)}</b><div class=muted>船名：${s.names.map(n=>e(n.name)+(n.is_current?'★':'')).join('、')}</div></td>
+ <td>${s.events.map(ev=>e(ev.type)+':'+e(ev.title)+'（'+tpText(ev.occurred_at?JSON.parse(ev.occurred_at):null)+'）').join('<br>')}</td></tr>`;}
+
+function page_ships(){head();
+ return `<section><b>新建船只</b>（同名不会自动认作同船，请到「身份候选」人工建立关系）
+ <input id=sname placeholder="船名"><button onclick="mkShip()">建船</button></section>
+ <section><table><tr><th>ID</th><th>船名（改名/重建/转手分条记录）</th><th>事件</th></tr>
+ ${S.ships.map(renderShip).join('')}</table></section>
+ <section>给船 #<input id=sid size=3> 加：<br>
+ 曾用/新名 <input id=nm placeholder="名"> 起始年代<input id=uf placeholder="1952 / 1952..1958 / 空=未定" size=22>
+ <label><input type=checkbox id=cur> 设为现名</label> <button onclick="addName()">加船名</button><br>
+ 船东/转手 <input id=ow placeholder="船东"> 年代<input id=owa size=10> <button onclick="addOwner()">加转手</button><br>
+ 事件类型<select id=et><option>build<option>rename<option>transfer<option>rebuild<option>sight<option>other</select>
+ 标题<input id=eti> 发生年代<input id=etw size=10> 采集年代<input id=etc size=10>
+ <button onclick="addEvent()">加事件</button></section>`;
+}
+async function mkShip(){await api('/api/ships',{body:{name:sname.value}});loadAll();}
+async function addName(){await api(`/api/ships/${sid.value}/names`,{body:{name:nm.value,used_from:uf.value,make_current:cur.checked}});loadAll();}
+async function addOwner(){await api(`/api/ships/${sid.value}/owners`,{body:{owner:ow.value,occurred_at:owa.value}});loadAll();}
+async function addEvent(){await api(`/api/ships/${sid.value}/events`,{body:{type:et.value,title:eti.value,occurred_at:etw.value,collected_at:etc.value}});loadAll();}
+
+function page_identity(){head();
+ const openShips=S.ships.filter(s=>!s.superseded);
+ return `<section><b>建立身份候选</b>（需两位不同编辑；同名不自动合并）<br>
+ 船A<select id=ca>${openShips.map(s=>`<option value=${s.id}>#${s.id} ${e(s.current_name)}</option>`)}</select>
+ 船B<select id=cb>${openShips.map(s=>`<option value=${s.id}>#${s.id} ${e(s.current_name)}</option>`)}</select>
+ 备注<input id=cnote size=30><button onclick="mkCand()">建候选</button></section>
+ ${S.candidates.map(c=>{const evs=S.evidence.filter(x=>x.candidate_id===c.id);
+  const a=S.ships.find(s=>s.id===c.ship_a),b=S.ships.find(s=>s.id===c.ship_b);
+  return `<section><b>候选 #${c.id}</b>：#${c.ship_a} ${e(a?.current_name)} ↔ #${c.ship_b} ${e(b?.current_name)} ${badge(c.status)}
+  <div class=muted>${e(c.note)}</div>
+  <table><tr><th>立场</th><th>证据</th></tr>
+  ${evs.map(v=>`<tr><td>${v.side==='same'?'支持同船':'反对同船'}</td><td>${e(v.content)}</td></tr>`).join('')}</table>
+  <input id=ev${c.id} size=50 placeholder="证据说明">
+  <button onclick="addEv(${c.id},'same')">支持同船</button>
+  <button onclick="addEv(${c.id},'different')">反对同船</button>
+  ${c.status==='open'?`<hr><button onclick="merge(${c.id},${c.ship_a})">合并并保留 #${c.ship_a}</button>
+   <button onclick="merge(${c.id},${c.ship_b})">合并并保留 #${c.ship_b}</button>
+   <span class=muted>（必须由创建候选之外的编辑执行）</span>`:''}
+  </section>`;}).join('')}
+ <section><b>已执行合并（可撤销并恢复引用）</b><table><tr><th>#</th><th>候选</th><th>保留</th><th>旧船</th><th>状态</th><th></th></tr>
+ ${S.merges.map(m=>`<tr><td>${m.id}</td><td>#${m.candidate_id}</td><td>#${m.kept_ship}</td><td>#${m.old_ship}</td>
+ <td>${m.undone?'<span class=weak>已撤销</span>':'有效'}</td>
+ <td>${m.undone?'':`<button onclick="undoMerge(${m.id})">撤销合并/恢复引用</button>`}</td></tr>`).join('')}</table></section>`;
+}
+async function mkCand(){await api('/api/candidates',{body:{ship_a:+ca.value,ship_b:+cb.value,note:cnote.value}});loadAll();}
+async function addEv(id,side){await api(`/api/candidates/${id}/evidence`,{body:{side,content:document.getElementById('ev'+id).value}});loadAll();}
+async function merge(id,keep){if(!confirm('确认合并？引用将备份，可撤销'))return;await api(`/api/candidates/${id}/merge`,{body:{keep_ship_id:keep}});loadAll();}
+async function undoMerge(id){if(!confirm('撤销合并并恢复全部引用？'))return;await api(`/api/merges/${id}/undo`,{});loadAll();}
+
+function page_jargons(){head();
+ return `<section>行话 <input id=jt placeholder="术语"> <input id=jm placeholder="释义">
+ 年代<input id=jw size=10 placeholder="可空"> 来源<input id=js> <button onclick="mkJ()">新增</button></section>
+ <section><table>${S.jargons.map(j=>`<tr><td>${j.id}</td><td><b>${e(j.term)}</b></td><td>${e(j.meaning)}</td>
+ <td>${badge(j.status)}<button onclick="jSt(${j.id},'approved')">定稿</button></td><td class=muted>${tpText(j.occurred_at?JSON.parse(j.occurred_at):null)}｜${e(j.source)}</td></tr>`).join('')}</table></section>`;}
+async function mkJ(){await api('/api/jargons',{body:{term:jt.value,meaning:jm.value,occurred_at:jw.value,source:js.value}});loadAll();}
+async function jSt(id,st){await api(`/api/jargons/${id}/status`,{body:{status:st}});loadAll();}
+
+function page_places(){head();
+ return `<section>地点 <input id=ln placeholder="名称"> 纬度<input id=lla size=8> 经度<input id=llo size=8>
+ <button onclick="mkL()">新增</button> <span class=muted>同一照片可关联多个地点</span></section>
+ <section><table>${S.locations.map(l=>`<tr><td>${l.id}</td><td>${e(l.name)}</td><td>${l.lat},${l.lng}</td></tr>`).join('')}</table></section>`;}
+async function mkL(){await api('/api/locations',{body:{name:ln.value,lat:+lla.value||null,lng:+llo.value||null}});loadAll();}
+
+function page_photos(){head();
+ return `<section>登记资产：服务器路径<input id=apath size=24> mime<input id=amime size=11 value="image/jpeg">
+ <button onclick="mkAsset('photo')">登记照片资产</button><span id=newasset class=muted></span></section>
+ <section>照片（说明与授权<b>分开</b>追踪）<br>
+ 资产ID<input id=pa size=4> 说明<input id=pc size=20> 授权/权利人<input id=pl size=20>
+ 拍摄年代<input id=pw size=10> 采集年代<input id=pg size=10>
+ 地点(逗号)<input id=plocs size=10> <button onclick="mkP()">建档</button></section>
+ <section><table><tr><th>#</th><th>说明</th><th>授权</th><th>年代</th><th>地点</th><th>资产/派生</th><th>总状态</th></tr>
+ ${S.photos.map(p=>{const a=S.assets.find(x=>x.id===p.asset_id);
+  const deriv=S.assets.filter(x=>x.derived_from===p.asset_id);
+  return `<tr><td>${p.id}</td>
+ <td>${e(p.caption)} ${badge(p.caption_status)}<div class=muted><button onclick="pCap(${p.id},'approved')">说明定稿</button></div></td>
+ <td>${e(p.license)} ${badge(p.license_status)}<div class=muted>
+  <button onclick="pLic(${p.id},'granted')">授权已授予</button>
+  <button onclick="pLic(${p.id},'revoked')">授权撤回</button></div></td>
+ <td>${tpText(p.occurred_at?JSON.parse(p.occurred_at):null)}<div class=muted>采集:${tpText(p.collected_at?JSON.parse(p.collected_at):null)}</div></td>
+ <td>${p.locations.join(',')} <div class=muted><input id=plk${p.id} size=3><button onclick="addPL(${p.id})">挂地点</button></div></td>
+ <td>#${p.asset_id??'-'} ${a?badge(a.active?'active':'inactive'):''}
+ <div class=muted>派生:${deriv.map(d=>'#'+d.id+(d.active?'':'(撤)')).join(',')||'无'}</div></td>
+ <td>${badge(p.status)} ${p.status==='draft'?`<button onclick="pSt(${p.id},'approved')">发布</button>`:''}<button onclick="pSt(${p.id},'withdrawn')">撤</button></td></tr>`;}).join('')}</table></section>`;}
+async function mkAsset(kind){const id=await api('/api/assets',{body:{kind,path:apath.value,mime:amime.value}});
+ document.getElementById('newasset').textContent='已登记资产 #'+id;document.getElementById('pa').value=id;}
+async function pSt(id,st){await api(`/api/photos/${id}/status`,{body:{status:st}});loadAll();}
+async function mkP(){await api('/api/photos',{body:{asset_id:pa.value?+pa.value:null,caption:pc.value,license:pl.value,occurred_at:pw.value,collected_at:pg.value,location_ids:plocs.value.split(',').filter(Boolean).map(Number)}});loadAll();}
+async function pCap(id,st){await api(`/api/photos/${id}/caption`,{body:{caption:'',status:st}}).catch(()=>{});
+ const c=prompt('说明文字（留空保持不变）');await api(`/api/photos/${id}/caption`,{body:{caption:c??'',status:st}});loadAll();}
+async function pLic(id,st){await api(`/api/photos/${id}/license`,{body:{license:'',status:st}}).catch(()=>{});
+ const l=prompt('授权信息（留空保持不变）');await api(`/api/photos/${id}/license`,{body:{license:l??'',status:st}});loadAll();}
+async function addPL(id){await api(`/api/photos/${id}/locations`,{body:{location_id:+document.getElementById('plk'+id).value}});loadAll();}
+
+function page_interviews(){head();
+ return `<section>受访者 <input id=ivn placeholder="姓名"> 采集年代<input id=ivc size=10> 音频资产#<input id=iva size=4>
+ <button onclick="mkIv()">建档</button></section>
+ ${S.interviews.map(iv=>`<section><b>#${iv.id} ${e(iv.interviewee)}</b> ${badge(iv.status)} 同意:${badge(iv.consent)}
+ <button onclick="ivCons(${iv.id},'granted')">同意</button><button onclick="ivCons(${iv.id},'revoked')">撤回同意</button>
+ <button onclick="ivSt(${iv.id},'approved')">审校通过</button>
+ <div>加逐字稿段：文本<input id=tx${iv.id} size=40> 入点<input id=tin${iv.id} size=8 placeholder="可空"> 出点<input id=tout${iv.id} size=8>
+ <button onclick="addSeg(${iv.id})">加段</button></div>
+ <table>${(iv.segments||[]).map(g=>`<tr><td>${g.seq}</td><td>${g.tcin?g.tcin+'→'+g.tcout:'<span class=weak>时码缺失</span>'}</td>
+ <td>${g.withdrawn?'<span class=weak>已撤回</span>':e(g.text)}</td><td>${g.withdrawn?'':`<button onclick="wSeg(${g.id})">受访者撤回此段</button>`}</td></tr>`).join('')}</table>
+ </section>`).join('')}`;}
+async function mkIv(){await api('/api/interviews',{body:{interviewee:ivn.value,collected_at:ivc.value,audio_asset:iva.value?+iva.value:null}});loadAll();}
+async function addSeg(id){await api(`/api/interviews/${id}/segments`,{body:{text:document.getElementById('tx'+id).value,tcin:document.getElementById('tin'+id).value||null,tcout:document.getElementById('tout'+id).value||null}});loadAll();}
+async function wSeg(id){await api(`/api/segments/${id}/withdraw`,{});loadAll();}
+async function ivCons(id,c){await api(`/api/interviews/${id}/consent`,{body:{consent:c}});loadAll();}
+async function ivSt(id,st){await api(`/api/interviews/${id}/status`,{body:{status:st}});loadAll();}
+
+function page_statements(){head();
+ return `<section><b>史料陈述（API 维护，需审校）</b><br>主题<input id=qtp size=12> 正文<input id=qco size=40>
+ 发生年代<input id=qoc size=10> 采集年代<input id=qcl size=10> 来源<input id=qsrc size=12>
+ <button onclick="mkQ()">起草</button></section>
+ <section><table><tr><th>#</th><th>主题/正文</th><th>年代</th><th>状态/流程</th></tr>
+ ${S.statements.map(q=>`<tr><td>${q.id}</td><td><b>${e(q.topic)}</b><div class=muted>${e(q.content)}</div>
+ <div class=muted>来源：${e(q.source)}｜公开:${q.published_at?'是':'否'}</div></td>
+ <td>${tpText(q.occurred_at?JSON.parse(q.occurred_at):null)}</td>
+ <td>${badge(q.status)} v${q.version}<br>
+ ${q.status==='draft'||q.status==='rejected'?`<button onclick="qAct(${q.id},'submit')">送审</button>`:''}
+ ${q.status==='in_review'?`<button onclick="qRev(${q.id},1)">通过</button><button onclick="qRev(${q.id},0)">退回</button>`:''}
+ <button onclick="qAct(${q.id},'withdraw')">撤回</button></td></tr>`).join('')}</table></section>`;}
+async function mkQ(){await api('/api/statements',{body:{topic:qtp.value,content:qco.value,occurred_at:qoc.value,collected_at:qcl.value,source:qsrc.value}});loadAll();}
+async function qAct(id,a){await api(`/api/statements/${id}/${a}`,{});loadAll();}
+async function qRev(id,ok){await api(`/api/statements/${id}/review`,{body:{approve:!!ok}});loadAll();}
+
+async function page_publish(){head();
+ const diff=await api('/api/diff',{method:'GET'});
+ const ships=S.ships.filter(s=>!s.superseded);
+ return `<section><b>发布前对比</b>：冻结内容图 vs 动态最新陈述
+ <pre>${e(JSON.stringify(diff,null,1))}</pre>
+ <input id=pnote placeholder="版本说明">
+ <button class=act onclick="doPub(0)">冻结并发布新版本</button>
+ <button onclick="doPub(1)" class=weak>模拟渲染后失败（演练保留旧版）</button></section>
+ <section><b>撤稿任务</b>（照片撤稿级联原片与派生缩略图；访谈撤稿级联音频并撤回逐字稿段）<br>
+ 原因<input id=tr size=24> 目标类型<select id=tt><option value=photo>photo</option><option>interview</option><option>statement</option><option>asset</option></select>
+ ID<input id=ti size=4><button onclick="mkTake()">建撤稿任务</button></section>
+ <table>${S.takedowns.map(t=>`<tr><td>#${t.id}</td><td>${e(t.reason)}</td><td>${badge(t.status)}</td>
+ <td>${t.status==='open'?`<button onclick="execTake(${t.id})">执行</button>`:''}
+ ${t.status==='done'?`<button onclick="reinTake(${t.id})">管理员恢复</button>`:''}</td></tr>`).join('')}</table>
+ <section><b>版本与恢复</b>（离线页随版本恢复旧资源）<div id=pubs></div></section>`;
+}
+async function doPub(fail){
+ try{await api('/api/publish',{body:{note:pnote.value,fail_after_render:!!fail}});
+ alert('发布成功');}catch(err){alert('发布失败，保留上个完整版本：\n'+err.message);}
+ loadAll();loadPubs();}
+async function mkTake(){await api('/api/takedowns',{body:{reason:tr.value,targets:[{type:tt.value,id:+ti.value}]}});loadAll();}
+async function execTake(id){await api(`/api/takedowns/${id}/execute`,{});loadAll();}
+async function reinTake(id){await api(`/api/takedowns/${id}/reinstate`,{});loadAll();}
+async function loadPubs(){const j=await api('/api/pubs',{method:'GET'});
+ document.getElementById('pubs').innerHTML=j.publications.map(p=>
+ `${p.id===j.current?'★':''} v${p.id} ${p.created_at} ${e(p.note)} <button onclick="actPub(${p.id})">恢复到此版</button><br>`).join('');}
+async function actPub(id){await api('/api/publish/activate',{body:{publication_id:id}});loadAll();}
+
+function render(){let h='';
+ if(tab==='ships')h=page_ships(); if(tab==='identity')h=page_identity();
+ if(tab==='jargons')h=page_jargons(); if(tab==='places')h=page_places();
+ if(tab==='photos')h=page_photos(); if(tab==='interviews')h=page_interviews();
+ if(tab==='statements')h=page_statements();
+ if(tab==='publish'){page_publish().then(x=>view.innerHTML=x).then(loadPubs);return;}
+ view.innerHTML=h;}
+loadAll();
+</script>
